@@ -1,0 +1,224 @@
+package com.wuba.lib.compiler;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+/**
+ * sample: {"a0":"value0","b0":"false","c0":[{"c1":"c1value"},{"ca1":"true"}],"d0":["d0value","d0value"],"e0":[1,2,3],"f0":{"f1":"f1value","fa1":33}}
+ *
+ * Date:2018/7/10
+ * author: liqing
+ */
+public class GenerateXML {
+
+    private final static String TAG = GenerateXML.class.getSimpleName();
+    private final static String SEPARATOR = "/";
+
+    private List<XMLBean> xmlBeans = new ArrayList<XMLBean>();
+
+    private enum Type {
+        STRING, INTEGER, JSONObject, JSONArray,LLLEGAL
+    }
+
+    /**
+     * 生成xml格式节点名称
+     */
+    private enum Node {
+        NODES("config"), NODE1("key"), NODE2("value"), NODE3("type"), NODE4("desc");
+
+        String node;
+
+        Node(String node) {
+            this.node = node;
+        }
+    }
+
+    /**
+     * 生成XML格式数据
+     * @param treeNodes
+     * @return
+     */
+    private String genXML(List<XMLBean> treeNodes) {
+        StringBuilder xmlnodes = new StringBuilder();
+        if (treeNodes != null && treeNodes.size() > 0) {
+            xmlnodes.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+            xmlnodes.append("<"+Node.NODES+">\n");
+            for (int i = 0; i < treeNodes.size(); i++) {
+                XMLBean node = treeNodes.get(i);
+                xmlnodes.append("<"+Node.NODES.node+">\n");
+                xmlnodes.append("<" + Node.NODE1.node + ">" + node.key + "</" + Node.NODE1.node + ">\n");
+                xmlnodes.append("<" + Node.NODE2.node + ">" + node.value + "</" + Node.NODE2.node + ">\n");
+                xmlnodes.append("<" + Node.NODE3.node + ">" + node.type + "</" + Node.NODE3.node + ">\n");
+                xmlnodes.append("<" + Node.NODE4.node + ">" + node.desc + "</" + Node.NODE4.node + ">\n");
+                xmlnodes.append("</" + Node.NODES.node + ">\n");
+            }
+            xmlnodes.append("</" + Node.NODES + ">\n");
+        }
+        return xmlnodes.toString();
+    }
+
+    /**
+     * 将源json数据格式化成转XML的数据
+     *
+     * @return
+     */
+    private List<XMLBean> fmtJson(JSONObject obj, XMLBean bean) throws JSONException {
+        Iterator iterator = obj.keys();
+        XMLBean xmlBean = bean;
+        while (iterator.hasNext()) {
+
+            if (bean == null) {
+                xmlBean = new XMLBean();
+            }
+
+            String key = (String) iterator.next();
+            Object value = obj.get(key);
+            switch (matchType(value)) {
+                case STRING:
+                    XMLBean stringBean = new XMLBean();
+                    stringBean.key = bean != null ? (bean.key + SEPARATOR + key) : key;
+                    stringBean.value = String.valueOf(value);
+                    if ("true".equals(stringBean.value) || "false".equals(stringBean.value)) {
+                        stringBean.type = "BOOL";
+                    } else {
+                        stringBean.type = "STRING";
+                    }
+                    stringBean.desc = "";
+                    xmlBeans.add(stringBean);
+                    break;
+                case INTEGER:
+                    XMLBean intBean = new XMLBean();
+                    intBean.key = bean != null ? (bean.key + SEPARATOR + key) : key;
+                    intBean.value = value;
+                    intBean.type = "INT";
+                    intBean.desc = "";
+                    xmlBeans.add(intBean);
+                    break;
+                case JSONObject:
+                    xmlBean.key = key;
+                    fmtJson((JSONObject) value, xmlBean);
+                    break;
+                case JSONArray:
+                    for (int i = 0; i < ((JSONArray) value).length(); i++) {
+                        Object object = ((JSONArray) value).get(i);
+                        if (object instanceof String) {
+                            XMLBean xmlBean1 = new XMLBean();
+                            xmlBean1.key = key + "/" + i;
+                            xmlBean1.value = String.valueOf(object);
+                            xmlBean1.type = "STRING";
+                            xmlBean1.desc = "";
+                            xmlBeans.add(xmlBean1);
+                        }
+                        if (object instanceof Integer) {
+                            XMLBean xmlBean1 = new XMLBean();
+                            xmlBean1.key = key + "/" + i;
+                            xmlBean1.value = object;
+                            xmlBean1.type = "INT";
+                            xmlBean1.desc = "";
+                            xmlBeans.add(xmlBean1);
+                        }
+                        if (object instanceof JSONObject) {
+                            xmlBean.key = key;
+                            fmtJson((JSONObject) object, xmlBean);
+                        }
+                    }
+                    break;
+                default:
+                    System.out.println("未知类型值 "+key+":"+value);
+            }
+        }
+        return xmlBeans;
+    }
+
+    private Type matchType(Object obj) {
+
+        if (obj instanceof String) {
+            return Type.STRING;
+        }
+
+        if (obj instanceof Integer) {
+            return Type.INTEGER;
+        }
+
+        if (obj instanceof JSONArray) {
+            return Type.JSONArray;
+        }
+
+        if (obj instanceof JSONObject) {
+            return Type.JSONObject;
+        }
+        return Type.LLLEGAL;
+    }
+
+    private void writeTo(String filePath, String content) {
+        String rootPath = System.getProperty("user.dir");
+        File jsFile = new File(rootPath + "/" + filePath);
+        System.out.println(rootPath + "/" + filePath);
+        if (jsFile.exists()) {
+            jsFile.delete();
+        }
+        try {
+            jsFile.createNewFile();
+            BufferedWriter bos = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(jsFile)));
+            bos.write(content);
+            bos.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String arg[]) {
+        GenerateXML xml = new GenerateXML();
+        String json = "{\n" +
+                "  \"a0\": \"value0\",\n" +
+                "  \"b0\": \"false\",\n" +
+                "  \"c0\": [\n" +
+                "    {\n" +
+                "      \"c1\": \"c1value\",\n" +
+                "      \"c2\": true\n" +
+                "    },\n" +
+                "    {\n" +
+                "      \"ca1\": \"true\"\n" +
+                "    }\n" +
+                "  ],\n" +
+                "  \"d0\": [\n" +
+                "    \"d0value\",\n" +
+                "    \"d0value\"\n" +
+                "  ],\n" +
+                "  \"e0\": [\n" +
+                "    1,\n" +
+                "    2,\n" +
+                "    3\n" +
+                "  ],\n" +
+                "  \"f0\": {\n" +
+                "    \"f1\": \"f1value\",\n" +
+                "    \"fa1\": 33\n" +
+                "  }\n" +
+                "}";
+        try {
+            JSONObject jsonObject = new JSONObject(json);
+            List<XMLBean> xmlBeans = xml.fmtJson(jsonObject, null);
+
+            xml.writeTo("config.xml", xml.genXML(xmlBeans));
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+public class XMLBean {
+    public String key;
+    public Object value;
+    public String type;
+    public String desc;
+}
