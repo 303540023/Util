@@ -1,0 +1,32 @@
+public class TextUtils {
+
+    public static boolean isEmpty(CharSequence str) {
+        return str == null || str.length() == 0;
+    }
+
+    /**
+     * 使字符串第一个字符大写
+     * @param str
+     * @return
+     */
+    public static String toUpperCase(String str) {
+        return str.substring(0, 1).toUpperCase() + str.substring(1);
+    }
+
+    /**
+     * 匹配 <> 尖括号里的字符串
+     * @param string
+     * @return
+     */
+    public static String getParameterType(String string) {
+        Pattern pattern = Pattern.compile("<([^>]+?)>");
+
+        java.util.regex.Matcher matcher = pattern.matcher(string);
+
+        String content = null;
+        while (matcher.find()) {
+            content = matcher.group(1);
+        }
+        return content;
+    }
+}
