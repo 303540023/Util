@@ -10,8 +10,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * sample: {"a0":"value0","b0":"false","c0":[{"c1":"c1value"},{"ca1":"true"}],"d0":["d0value","d0value"],"e0":[1,2,3],"f0":{"f1":"f1value","fa1":33}}
@@ -34,12 +36,12 @@ public class GenerateXML {
      * 生成xml格式节点名称
      */
     private enum Node {
-        NODES("config"), NODE1("key"), NODE2("value"), NODE3("type"), NODE4("desc");
+        NODES("configs"),NODE("config"), NODE1("key"), NODE2("value"), NODE3("type"), NODE4("desc");
 
-        String node;
+        String value;
 
         Node(String node) {
-            this.node = node;
+            this.value = node;
         }
     }
 
@@ -52,27 +54,27 @@ public class GenerateXML {
         StringBuilder xmlnodes = new StringBuilder();
         if (treeNodes != null && treeNodes.size() > 0) {
             xmlnodes.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-            xmlnodes.append("<"+Node.NODES+">\n");
+            xmlnodes.append("<"+Node.NODES.value +" action='aa'>\n");
             for (int i = 0; i < treeNodes.size(); i++) {
                 XMLBean node = treeNodes.get(i);
-                xmlnodes.append("<"+Node.NODES.node+">\n");
-                xmlnodes.append("<" + Node.NODE1.node + ">" + node.key + "</" + Node.NODE1.node + ">\n");
-                xmlnodes.append("<" + Node.NODE2.node + ">" + node.value + "</" + Node.NODE2.node + ">\n");
-                xmlnodes.append("<" + Node.NODE3.node + ">" + node.type + "</" + Node.NODE3.node + ">\n");
-                xmlnodes.append("<" + Node.NODE4.node + ">" + node.desc + "</" + Node.NODE4.node + ">\n");
-                xmlnodes.append("</" + Node.NODES.node + ">\n");
+                xmlnodes.append("<"+Node.NODE.value +">\n");
+                xmlnodes.append("<" + Node.NODE1.value + ">" + node.key + "</" + Node.NODE1.value + ">\n");
+                xmlnodes.append("<" + Node.NODE2.value + ">" + node.value + "</" + Node.NODE2.value + ">\n");
+                xmlnodes.append("<" + Node.NODE3.value + ">" + node.type + "</" + Node.NODE3.value + ">\n");
+                xmlnodes.append("<" + Node.NODE4.value + ">" + node.desc + "</" + Node.NODE4.value + ">\n");
+                xmlnodes.append("</" + Node.NODE.value + ">\n");
             }
-            xmlnodes.append("</" + Node.NODES + ">\n");
+            xmlnodes.append("</" + Node.NODES.value + ">\n");
         }
         return xmlnodes.toString();
     }
 
     /**
-     * 将源json数据格式化成转XML的数据
+     * 将源json数据转为XML对象数据
      *
      * @return
      */
-    private List<XMLBean> fmtJson(JSONObject obj, XMLBean bean) throws JSONException {
+    private List<XMLBean> fromJson(JSONObject obj, XMLBean bean) throws JSONException {
         Iterator iterator = obj.keys();
         XMLBean xmlBean = bean;
         while (iterator.hasNext()) {
@@ -106,14 +108,15 @@ public class GenerateXML {
                     break;
                 case JSONObject:
                     xmlBean.key = key;
-                    fmtJson((JSONObject) value, xmlBean);
+                    fromJson((JSONObject) value, xmlBean);
                     break;
                 case JSONArray:
-                    for (int i = 0; i < ((JSONArray) value).length(); i++) {
+                    for (int i = 0; i == 0; i++) {
+
                         Object object = ((JSONArray) value).get(i);
                         if (object instanceof String) {
                             XMLBean xmlBean1 = new XMLBean();
-                            xmlBean1.key = key + "/" + i;
+                            xmlBean1.key = key + "/*";
                             xmlBean1.value = String.valueOf(object);
                             xmlBean1.type = "STRING";
                             xmlBean1.desc = "";
@@ -121,7 +124,7 @@ public class GenerateXML {
                         }
                         if (object instanceof Integer) {
                             XMLBean xmlBean1 = new XMLBean();
-                            xmlBean1.key = key + "/" + i;
+                            xmlBean1.key = key + "/*";
                             xmlBean1.value = object;
                             xmlBean1.type = "INT";
                             xmlBean1.desc = "";
@@ -129,7 +132,7 @@ public class GenerateXML {
                         }
                         if (object instanceof JSONObject) {
                             xmlBean.key = key;
-                            fmtJson((JSONObject) object, xmlBean);
+                            fromJson((JSONObject) object, xmlBean);
                         }
                     }
                     break;
@@ -138,6 +141,11 @@ public class GenerateXML {
             }
         }
         return xmlBeans;
+    }
+
+    class JsonData{
+        String key;
+        String value;
     }
 
     private Type matchType(Object obj) {
@@ -185,7 +193,7 @@ public class GenerateXML {
                 "  \"c0\": [\n" +
                 "    {\n" +
                 "      \"c1\": \"c1value\",\n" +
-                "      \"c2\": true\n" +
+                "      \"c2\": \"true\"\n" +
                 "    },\n" +
                 "    {\n" +
                 "      \"ca1\": \"true\"\n" +
@@ -207,18 +215,15 @@ public class GenerateXML {
                 "}";
         try {
             JSONObject jsonObject = new JSONObject(json);
-            List<XMLBean> xmlBeans = xml.fmtJson(jsonObject, null);
+            List<XMLBean> xmlBeans = xml.fromJson(jsonObject, null);
 
             xml.writeTo("config.xml", xml.genXML(xmlBeans));
+
+            WubaSaxParser parser = new WubaSaxParser();
+            String rootPath = System.getProperty("user.dir");
+            parser.initParser(rootPath+"/config.xml");
         } catch (JSONException e) {
             e.printStackTrace();
         }
     }
-}
-
-public class XMLBean {
-    public String key;
-    public Object value;
-    public String type;
-    public String desc;
 }
